@@ -1,0 +1,15 @@
+name = "ErrorHolmes"
+
+version = "0.1.0"
+
+description = "Displays errors and warnings directly in the code editor."
+
+author = "iamjuaness <iamjcv65@gmail.com>"
+
+languages = ["javascript", "python", "rust", "java", "cpp"]
+
+entry = "target/debug/error_holmes"
+
+readme = "README.md"
+
+configuration = { provideFormatter = true }
