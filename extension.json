@@ -1,0 +1,15 @@
+{
+    "name": "error_holmes",
+    "version": "0.1.0",
+    "description": "Shows errors and warnings inline in the editor",
+    "authors": ["YourName"],
+    "repository": "https://github.com/iamjuaness/Error_Holmes_For_Zed",
+    "wasm": {
+        "paths": ["error_holmes.wasm"]
+    },
+    "capabilities": {
+        "buffers": true,
+        "decorations": true,
+        "diagnostics": true
+    }
+}

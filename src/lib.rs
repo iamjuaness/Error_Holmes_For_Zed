@@ -1,87 +1,50 @@
-use zed_extension_api::{self as zed, Result, LanguageServerId};
+use std::collections::HashMap;
+use zed_extension_api::serde_json::Value;
+use zed_extension_api::{settings::CommandSettings, settings::LspSettings, Worktree};
 
-struct ErrorHolmesExtension {
-    cached_server_path: Option<String>,
-}
+pub struct MyLspExtension;
 
-impl ErrorHolmesExtension {
-    fn detect_language_from_project(worktree: &zed::Worktree) -> Option<String> {
-        let files_to_check = vec![
-            ("package.json", "JavaScript/TypeScript"),
-            ("requirements.txt", "Python"),
-            ("Gemfile", "Ruby"),
-        ];
+// Aquí configuramos el servidor LSP, por ejemplo, para `rust-analyzer`
+impl MyLspExtension {
+    pub fn new(worktree: &Worktree) -> MyLspExtension {
+        // Configuración del servidor LSP
+        let settings = get_lsp_settings("rust-analyzer", worktree).unwrap();
 
-        for (file, language) in files_to_check {
-            // Usa `which()` para comprobar si el archivo existe
-            if worktree.which(file).is_some() {
-                return Some(language.to_string());
+        // Inicializa el servidor LSP
+        MyLspExtension // Devuelve la extensión configurada
+    }
+
+    // Esta función maneja los mensajes LSP, específicamente los diagnósticos
+    pub fn handle_lsp_response(response: Value) {
+        // Procesar la respuesta LSP que contiene los diagnósticos
+        // Aquí verificarías si la respuesta contiene información relevante de diagnóstico
+        if let Some(diagnostics) = response.get("diagnostics") {
+            // Aquí podrías recorrer los diagnósticos y mostrarlos de alguna forma
+            // Este es un ejemplo simplificado
+            for diagnostic in diagnostics.as_array().unwrap() {
+                println!("Error: {}", diagnostic["message"].as_str().unwrap());
             }
         }
-
-        None
-    }
-
-    fn get_language_server_path(
-        &mut self,
-        language: &str,
-        worktree: &zed::Worktree,
-    ) -> Result<String> {
-        if let Some(path) = self.cached_server_path.clone() {
-            return Ok(path);
-        }
-
-        // Detectar la ruta del servidor LSP según el lenguaje
-        let server_path = match language {
-            "JavaScript/TypeScript" => "typescript-language-server",  // Ejemplo para TypeScript
-            "Python" => "pyls",                                      // Ejemplo para Python
-            _ => "default-lsp-server",                               // Caso predeterminado
-        };
-
-        let path = worktree.which(server_path).ok_or_else(|| {
-            format!("Debe instalar el servidor LSP para el lenguaje '{}'", language)
-        })?;
-
-        self.cached_server_path = Some(path.clone());
-        Ok(path)
     }
 }
 
-impl zed::Extension for ErrorHolmesExtension {
-    fn new() -> Self {
-        Self {
-            cached_server_path: None,
-        }
-    }
+// Función para obtener la configuración del servidor LSP
+fn get_lsp_settings(
+    language_server_name: &str,
+    worktree: &Worktree,
+) -> Result<LspSettings, Box<dyn std::error::Error>> {
+    let mut env = HashMap::new();
+    env.insert("RUST_LOG".to_string(), "debug".to_string()); // Ejemplo de variable de entorno
 
-    fn language_server_command(
-        &mut self,
-        language_server_id: &LanguageServerId,
-        worktree: &zed::Worktree,
-    ) -> Result<zed::Command> {
-        let language = Self::detect_language_from_project(worktree).ok_or_else(|| {
-            "No se pudo detectar el lenguaje del proyecto".to_string()
-        })?;
+    let settings = LspSettings {
+        binary: Some(CommandSettings {
+            path: Some(language_server_name.to_string()), // Ruta al binario del servidor LSP
+            arguments: Some(vec![]), // Aquí puedes añadir los argumentos necesarios para el servidor
+            env: Some(env),          // Variables de entorno necesarias
+        }),
+        initialization_options: Some(Value::Object(zed_extension_api::serde_json::Map::new())), // Opciones de inicialización
+        settings: Some(Value::Object(zed_extension_api::serde_json::Map::new())), // Configuración adicional
+    };
 
-        let server_path = self.get_language_server_path(&language, worktree)?;
-
-        Ok(zed::Command {
-            command: server_path,
-            args: vec!["--stdio".to_string()], // Argumentos según el servidor
-            env: Default::default(),
-        })
-    }
-
-    fn language_server_initialization_options(
-        &mut self,
-        _: &LanguageServerId,
-        _: &zed::Worktree,
-    ) -> Result<Option<serde_json::Value>> {
-        Ok(Some(serde_json::json!({
-            "provideFormatter": true,
-            "diagnostics": true,  // Activar diagnósticos como errores y advertencias
-        })))
-    }
+    Ok(settings)
 }
-
-zed::register_extension!(ErrorHolmesExtension);
